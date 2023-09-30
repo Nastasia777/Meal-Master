@@ -2,19 +2,36 @@ from flask import request, jsonify
 from application.users import users_bp
 from application import mongo
 from bson.objectid import ObjectId
+import bcrypt
+from flask_bcrypt import Bcrypt
+
+bcrypt = Bcrypt()
 
 @users_bp.route('/')
 def get_users():
     users = list(mongo.db.users.find({}, {'_id': 0, 'first_name': 1, 'last_name': 1, 'email': 1, 'weight': 1, 'height': 1, 'gender': 1}))
     return jsonify(users)
 
-@users_bp.route('/', methods=['POST'])
-def create_user():
+@users_bp.route('/register', methods=['POST'])
+def register():
     data = request.get_json()
     if not data:
         return jsonify({"message": "Invalid data"}), 400
+
+    plaintext_password = data.get('password')
+    
+    # Check if password is provided
+    if not plaintext_password:
+        return jsonify({"message": "Password is required"}), 400
+    
+    # Hash the plaintext password
+    hashed_password = bcrypt.generate_password_hash(plaintext_password).decode('utf-8')
+    
+    data['password'] = hashed_password
+    
     mongo.db.users.insert_one(data)
-    return jsonify({"message": "User created successfully"}), 201
+    return jsonify({"message": "User registered successfully"}), 201
+
 
 @users_bp.route('/<user_id>', methods=['GET'])
 def get_user(user_id):

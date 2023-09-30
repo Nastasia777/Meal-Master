@@ -10,5 +10,8 @@ cors = "*"
 python-dotenv = "*"
 flask-talisman = "*"
 flask-favicon = "*"
+flask-login = "*"
+flask-bcrypt = "*"
+bcrypt = "*"
 
 [dev-packages]

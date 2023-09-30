@@ -1,0 +1,14 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+flask = "*"
+flask-pymongo = "*"
+cors = "*"
+python-dotenv = "*"
+flask-talisman = "*"
+flask-favicon = "*"
+
+[dev-packages]

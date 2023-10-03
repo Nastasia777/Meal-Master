@@ -5,6 +5,7 @@ from flask_bcrypt import Bcrypt
 from dotenv import load_dotenv
 from bson.objectid import ObjectId
 from flask_login import UserMixin
+from flask_cors import CORS
 import os
 
 cwd = os.getcwd()
@@ -14,6 +15,7 @@ load_dotenv(dotenv_path=env_path)
 
 
 app = Flask(__name__, static_folder='../static', template_folder='../templates')
+CORS(app) 
 bcrypt = Bcrypt(app)
 login_manager = LoginManager()  # Create instance of LoginManager
 

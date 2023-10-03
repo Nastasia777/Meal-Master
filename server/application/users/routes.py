@@ -16,21 +16,22 @@ def get_users():
 def register():
     data = request.get_json()
     if not data:
+        print('No JSON data received')  
         return jsonify({"message": "Invalid data"}), 400
 
+    
+    required_fields = ['email', 'password', 'first_name', 'last_name', 'weight', 'height', 'gender']
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return jsonify({"message": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+    
     plaintext_password = data.get('password')
-    
-    # Check if password is provided
-    if not plaintext_password:
-        return jsonify({"message": "Password is required"}), 400
-    
-    # Hash the plaintext password
     hashed_password = bcrypt.generate_password_hash(plaintext_password).decode('utf-8')
-    
     data['password'] = hashed_password
     
     mongo.db.users.insert_one(data)
     return jsonify({"message": "User registered successfully"}), 201
+
 
 
 @users_bp.route('/<user_id>', methods=['GET'])

@@ -1,14 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles.css";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const [redirectToHome, setRedirectToHome] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const response = await fetch("http://localhost:5000/auth/login", {
+    const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -17,11 +20,17 @@ function Login() {
     });
     const data = await response.json();
     if (response.ok) {
-      // Handle successful login, e.g., save user data, redirect to dashboard
+      setRedirectToHome(true);
     } else {
       setError(data.message);
     }
   };
+
+  useEffect(() => {
+    if (redirectToHome) {
+      navigate("/homepage");
+    }
+  }, [redirectToHome, navigate]);
 
   return (
     <form onSubmit={handleSubmit}>

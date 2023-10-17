@@ -4,6 +4,8 @@ from application import mongo
 from bson.objectid import ObjectId
 import bcrypt
 from flask_bcrypt import Bcrypt
+from application.decorators import token_required
+import logging
 
 bcrypt = Bcrypt()
 
@@ -35,6 +37,7 @@ def register():
 
 
 @users_bp.route('/<user_id>', methods=['GET'])
+@token_required
 def get_user(user_id):
     user = mongo.db.users.find_one({"_id": ObjectId(user_id)})
     if user:
@@ -55,3 +58,18 @@ def update_user(user_id):
 def delete_user(user_id):
     mongo.db.users.delete_one({"_id": ObjectId(user_id)})
     return jsonify({"message": "User deleted successfully"})
+
+@users_bp.route('/me', methods=['GET'])
+@token_required
+def get_current_user(current_user):
+    logging.info(f'Current user: {current_user}')
+    user = {
+        '_id': str(current_user['_id']),
+        'first_name': current_user['first_name'],
+        'last_name': current_user['last_name'],
+        'email': current_user['email'],
+        "gender": current_user['gender'],
+        "height": current_user['height'],
+        "weight": current_user['weight'],
+    }
+    return jsonify(user)

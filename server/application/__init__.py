@@ -25,6 +25,7 @@ app.config["MONGO_URI"] = os.environ.get("MONGO_URI")
 
 mongo = PyMongo(app)
 
+print(f'SECRET_KEY from .env: {app.config["SECRET_KEY"]}') # checking if the SECRET_KEY is set correctly
 
 login_manager.init_app(app)
 
@@ -48,4 +49,5 @@ app.register_blueprint(users_bp, url_prefix='/users')
 app.register_blueprint(auth_bp, url_prefix='/auth')
 
 print(app.config["MONGO_URI"]) # checking if the URI is set correctly
+
 from application import routes

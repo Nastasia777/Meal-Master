@@ -1,11 +1,19 @@
+import jwt
+import datetime
 from flask import Blueprint, request, jsonify
 from flask_login import login_user
-from application import bcrypt  
-from application import mongo  
-from application.models import User  
+from application import bcrypt, app 
+from application import mongo
+from application.models import User
 from flask_login import logout_user
 
 auth_bp = Blueprint("auth", __name__)
+
+def validate_input(email, password):
+    if not email or not password:
+        return False, "Email and password are required"
+
+    return True, ""
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
@@ -27,12 +35,18 @@ def login():
 
             # Passwords match, login the user
             login_user(user) 
+
+            # Create JWT token
+            expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+            token = jwt.encode({'user_id': str(user_data['_id']), 'exp': expiration}, app.config['SECRET_KEY'], algorithm='HS256')
+            
             return (
                 jsonify(
                     id=str(user_data['_id']),
                     first_name=user_data['first_name'],
                     last_name=user_data['last_name'],
                     email=user_data['email'],
+                    token=token  # Include the token in the response
                 ),
                 200,
             )
@@ -42,7 +56,7 @@ def login():
     else:
         # User does not exist, deny access
         return jsonify({"message": "Invalid email or password"}), 401
-
+    
 def validate_input(email, password):
     if not email or not password:
         return False, "Email and password are required"

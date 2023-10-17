@@ -1,0 +1,29 @@
+nav {
+  width: 100%;
+  background-color: #333; /* You can change this color */
+  position: fixed;
+  top: 0;
+}
+
+nav ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+nav li {
+  float: left;
+}
+
+nav li a {
+  display: block;
+  color: white; /* You can change this color */
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+}
+
+nav li a:hover {
+  background-color: #111; /* You can change this color */
+}

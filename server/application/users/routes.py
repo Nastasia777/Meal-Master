@@ -20,21 +20,26 @@ def register():
     if not data:
         print('No JSON data received')  
         return jsonify({"message": "Invalid data"}), 400
-
     
-    required_fields = ['email', 'password', 'first_name', 'last_name', 'weight', 'height', 'gender']
-    missing_fields = [field for field in required_fields if field not in data]
-    if missing_fields:
-        return jsonify({"message": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+    # check if email is already in use
+    existing_user = mongo.db.users.find_one({"email": data.get('email')})
+    if existing_user:
+        return jsonify({"message": "Email is already in use. Please use a different email."}), 400
     
     plaintext_password = data.get('password')
     hashed_password = bcrypt.generate_password_hash(plaintext_password).decode('utf-8')
     data['password'] = hashed_password
-    
+
+    # Convert height and weight to integers
+    try:
+        data['height'] = int(data.get('height', 0).replace('cm', ''))  # remove 'cm' and defaults to 0 if height is not provided
+        data['weight'] = int(data.get('weight', 0).replace('kg', '').replace('lb', ''))  # remove 'kg' or 'lb' and defaults to 0 if weight is not provided
+    except ValueError as ve:
+        return jsonify({"message": "Invalid height or weight format"}), 400
+
     mongo.db.users.insert_one(data)
     return jsonify({"message": "User registered successfully"}), 201
-
-
+ 
 
 @users_bp.route('/<user_id>', methods=['GET'])
 @token_required
@@ -46,13 +51,26 @@ def get_user(user_id):
     return jsonify({"message": "User not found"}), 404
 
 
-@users_bp.route('/<user_id>', methods=['PUT'])
+@users_bp.route('/<user_id>', methods=['PATCH'])
 def update_user(user_id):
     data = request.get_json()
     if not data:
         return jsonify({"message": "Invalid data"}), 400
+
+    if 'password' in data:
+        plaintext_password = data.get('password')
+        hashed_password = bcrypt.generate_password_hash(plaintext_password).decode('utf-8')
+        data['password'] = hashed_password
+
+    # Convert height and weight to integers
+    if 'height' in data:
+        data['height'] = int(data['height'])
+    if 'weight' in data:
+        data['weight'] = int(data['weight'])
+
     mongo.db.users.update_one({"_id": ObjectId(user_id)}, {"$set": data})
     return jsonify({"message": "User updated successfully"})
+
 
 @users_bp.route('/<user_id>', methods=['DELETE'])
 def delete_user(user_id):
@@ -73,3 +91,22 @@ def get_current_user(current_user):
         "weight": current_user['weight'],
     }
     return jsonify(user)
+
+
+@users_bp.route('/change-password', methods=['POST'])
+@token_required
+def change_password(current_user):
+    data = request.get_json()
+    old_password = data.get('oldPassword')
+    new_password = data.get('newPassword')
+
+    # No need to hash the old_password here, it should be compared in plaintext
+    # hashed_old_password = bcrypt.generate_password_hash(old_password).decode('utf-8')
+    hashed_new_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+
+    # Correctly compare the plaintext old_password with the hashed password from the database
+    if bcrypt.check_password_hash(current_user['password'], old_password):
+        mongo.db.users.update_one({"_id": ObjectId(current_user['_id'])}, {"$set": {"password": hashed_new_password}})
+        return jsonify({"message": "Password updated successfully"})
+    else:
+        return jsonify({"message": "Old password is incorrect"}), 401

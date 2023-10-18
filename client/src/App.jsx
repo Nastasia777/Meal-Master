@@ -7,6 +7,7 @@ import RegisterPage from "./pages/RegisterPage";
 import MyAccountPage from "./pages/MyAccountPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import NavBar from "./components/NavBar";
+import ChangePasswordPage from "./pages/ChangePasswordPage";
 
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem("token"));
@@ -49,6 +50,7 @@ const App = () => {
           element={token ? <MyAccountPage /> : <Navigate to="/login" replace />}
         />
         <Route path="*" element={<NotFoundPage />} />
+        <Route path="/change-password" element={<ChangePasswordPage />} />
       </Routes>
     </AuthContext.Provider>
   );

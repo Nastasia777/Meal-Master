@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/MyAccountPage.css";
 
@@ -14,95 +14,122 @@ const MyAccountPage = () => {
     gender: false,
   });
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const token = localStorage.getItem("token");
+  const fetchUserData = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    try {
       const response = await fetch("http://localhost:5000/users/me", {
         headers: {
           Authorization: `Bearer ${token.replace(/"/g, "")}`,
         },
       });
-      if (!response.ok) {
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Fetched user data:", data);
+        setUserData({
+          ...data,
+          weight: { value: data.weight || "", unit: data.weightUnit || "kg" },
+          height: { value: data.height || "", unit: data.heightUnit || "cm" },
+        });
+      } else {
         console.error("Failed to fetch user data:", response.statusText);
-        return;
       }
-      const data = await response.json();
-      console.log(data);
-      setUserData({
-        ...data,
-        weight: { value: data.weight || 0, unit: "kg" },
-        height: { value: data.height || 0, unit: "cm" },
-      });
-    };
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchUserData();
-  }, [navigate]);
+  }, [fetchUserData]);
 
   const handleEditToggle = (field) => {
     setIsEditing((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const handleChange = (field, value) => {
+  const handleChangeValue = (field, e) => {
+    const value = e.target.value || "";
     if (field === "weight" || field === "height") {
       setUserData((prev) => ({
         ...prev,
         [field]: {
           ...prev[field],
-          value: value.value !== undefined ? value.value : prev[field]?.value,
-          unit: value.unit || prev[field]?.unit,
+          value: value,
         },
       }));
     } else {
-      setUserData((prev) => ({ ...prev, [field]: value }));
+      setUserData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
     }
   };
 
-  const handleUnitChange = (field, unit) => {
-    // Define conversion functions
-    const kgToLb = (kg) => (kg * 2.20462).toFixed(1);
-    const lbToKg = (lb) => (lb / 2.20462).toFixed(1);
-    const cmToInch = (cm) => (cm / 2.54).toFixed(2);
-    const inchToCm = (inch) => (inch * 2.54).toFixed(0);
-
+  const handleChangeUnit = (field, e) => {
+    const newUnit = e.target.value;
     setUserData((prev) => {
-      let convertedValue;
-      // Determine which conversion function to use based on field and unit
+      let value = prev[field].value;
       if (field === "weight") {
-        convertedValue =
-          unit === "kg" ? lbToKg(prev[field].value) : kgToLb(prev[field].value);
+        if (newUnit === "lb" && prev[field].unit === "kg") {
+          value = (parseFloat(value) * 2.20462).toFixed(1); // Convert kg to lb
+        } else if (newUnit === "kg" && prev[field].unit === "lb") {
+          value = (parseFloat(value) / 2.20462).toFixed(1); // Convert lb to kg
+        }
       } else if (field === "height") {
-        convertedValue =
-          unit === "cm"
-            ? inchToCm(prev[field].value)
-            : cmToInch(prev[field].value);
+        if (newUnit === "inch" && prev[field].unit === "cm") {
+          value = (parseFloat(value) / 2.54).toFixed(1); // Convert cm to inch
+        } else if (newUnit === "cm" && prev[field].unit === "inch") {
+          value = (parseFloat(value) * 2.54).toFixed(0); // Convert inch to cm
+        }
       }
-      // Update the value and unit for the specified field
       return {
         ...prev,
         [field]: {
-          value: convertedValue,
-          unit: unit,
+          value: value,
+          unit: newUnit,
         },
       };
     });
   };
 
   const handleSave = async (field) => {
-    const payload =
-      field === "weight" || field === "height"
-        ? { [field]: parseInt(userData[field].value, 10) }
-        : { [field]: userData[field] };
-    await fetch(`http://localhost:5000/users/${userData._id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+    let payload;
+    if (field === "weight" || field === "height") {
+      payload = {
+        [field]: `${userData[field].value} ${userData[field].unit}`,
+      };
+    } else {
+      payload = { [field]: userData[field] };
+    }
+
+    console.log(`Sending data for ${field} with payload:`, payload);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/users/${userData._id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (response.ok) {
+        console.log("Data saved successfully");
+        fetchUserData();
+      } else {
+        console.error("Failed to save data:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error saving data:", error);
+    }
+
     handleEditToggle(field);
   };
-
   if (!userData) {
-    return null; // or return a loading spinner
+    return <div>Loading...</div>;
   }
 
   return (
@@ -119,77 +146,53 @@ const MyAccountPage = () => {
           { key: "first_name", label: "Name" },
           { key: "last_name", label: "Surname" },
           { key: "gender", label: "Gender" },
-          { key: "weight", label: "Weight" },
-          { key: "height", label: "Height" },
-        ].map(({ key, label }) => (
+          { key: "weight", label: "Weight", units: ["kg", "lb"] },
+          { key: "height", label: "Height", units: ["cm", "inch"] },
+        ].map(({ key, label, units }) => (
           <div key={key} className="account-field">
             <span>{label}:</span>
             {isEditing[key] ? (
               <>
-                {key === "gender" ? (
-                  <select
-                    value={userData[key] || ""}
-                    onChange={(e) => handleChange(key, e.target.value)}
-                  >
-                    <option value="Female">Female</option>
-                    <option value="Male">Male</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
-                  </select>
-                ) : key === "weight" || key === "height" ? (
+                {units ? (
                   <>
                     <input
                       type="text"
                       value={userData[key].value || ""}
-                      onChange={(e) =>
-                        handleChange(key, {
-                          ...userData[key],
-                          value: e.target.value,
-                        })
-                      }
+                      onChange={(e) => handleChangeValue(key, e)}
                     />
                     <select
                       value={userData[key].unit}
-                      onChange={(e) => handleUnitChange(key, e.target.value)}
+                      onChange={(e) => handleChangeUnit(key, e)}
                     >
-                      {key === "weight" ? (
-                        <>
-                          <option value="kg">kg</option>
-                          <option value="lb">lb</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="cm">cm</option>
-                          <option value="inch">inch</option>
-                        </>
-                      )}
+                      {units.map((unit) => (
+                        <option key={unit} value={unit}>
+                          {unit}
+                        </option>
+                      ))}
                     </select>
                   </>
                 ) : (
                   <input
                     type="text"
                     value={userData[key] || ""}
-                    onChange={(e) => handleChange(key, e.target.value)}
+                    onChange={(e) => handleChangeValue(key, e)}
                   />
                 )}
                 <button onClick={() => handleSave(key)}>Save</button>
               </>
             ) : (
-              <>
-                <span>
-                  {key === "weight" || key === "height"
-                    ? `${userData[key].value || "0"} ${
-                        userData[key].unit || "kg"
-                      }`
-                    : userData[key]}
-                </span>
-
-                <button onClick={() => handleEditToggle(key)}>Change</button>
-              </>
+              <span>
+                {units
+                  ? `${userData[key].value} ${userData[key].unit}`
+                  : userData[key]}
+              </span>
             )}
+            <button onClick={() => handleEditToggle(key)}>Change</button>
           </div>
         ))}
       </div>
     </div>
   );
 };
+
 export default MyAccountPage;
